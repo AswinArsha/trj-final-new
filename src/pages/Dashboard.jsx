@@ -9,7 +9,7 @@ import {
   X,
   CloudUpload,
   List as ListIcon,
-  User,
+  LayoutDashboard,
 } from 'lucide-react';
 
 import UploadData from '../components/UploadData';
@@ -119,29 +119,39 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 overflow-hidden">
         {/* Sidebar - desktop only */}
-        <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200">
-          <div className="px-6 py-6">
-            <h1 className="text-2xl font-bold text-blue-600">TRJ Dashboard</h1>
-          </div>
-          <nav className="flex-1 px-4 py-4 space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.name}
-                onClick={() => setView(item.name)}
-                className={`w-full flex items-center px-4 py-3 rounded-lg text-left ${
-                  view === item.name
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {item.icon}
-                <span className="ml-3 font-medium">{item.name}</span>
-              </button>
-            ))}
-          </nav>
-        </aside>
+        <div className="relative hidden lg:block w-20 shrink-0">
+          <aside className="group fixed left-0 top-[60px] bottom-0 z-40 w-20 overflow-hidden border-r border-gray-200 bg-white shadow-sm transition-[width,box-shadow] duration-300 ease-out hover:w-64 hover:shadow-xl focus-within:w-64 focus-within:shadow-xl">
+            <div className="border-b border-gray-100 px-4 py-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <LayoutDashboard className="w-5 h-5 text-blue-600 shrink-0" />
+                <h1 className="text-lg font-bold text-blue-600 whitespace-nowrap overflow-hidden max-w-0 opacity-0 transition-all duration-200 ease-out group-hover:max-w-[180px] group-hover:opacity-100 group-focus-within:max-w-[180px] group-focus-within:opacity-100">
+                  TRJ Dashboard
+                </h1>
+              </div>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+              {navItems.map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => setView(item.name)}
+                  title={item.name}
+                  className={`w-full flex items-center rounded-lg px-4 py-3 text-left transition-all duration-200 ease-out ${
+                    view === item.name
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  } justify-center group-hover:justify-start group-focus-within:justify-start`}
+                >
+                  {item.icon}
+                  <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out group-hover:ml-3 group-hover:max-w-[140px] group-hover:opacity-100 group-focus-within:ml-3 group-focus-within:max-w-[140px] group-focus-within:opacity-100">
+                    {item.name}
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </aside>
+        </div>
 
         {/* Mobile sidebar overlay */}
         {mobileSidebarOpen && (
@@ -212,7 +222,7 @@ export default function Dashboard() {
         )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className="flex-1 min-w-0 overflow-auto p-4 lg:p-6">
           {view === 'Upload Data' ? <UploadData /> : <CustomerDetails />}
         </main>
       </div>

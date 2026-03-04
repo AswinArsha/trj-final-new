@@ -48,26 +48,17 @@ export default function CustomerTable({
     });
   };
 
-  // Function to export data to CSV
-  const getRowsForReport = async () => {
+  // Use full filtered dataset for printing.
+  const getRowsForPrintReport = async () => {
     if (!fetchAllFilteredRows || filtered.length >= totalFilteredCount) {
       return filtered;
     }
     return fetchAllFilteredRows();
   };
 
-  const exportToCSV = async () => {
-    setIsPreparingReport(true);
-    let reportRows = filtered;
-    try {
-      reportRows = await getRowsForReport();
-    } catch (error) {
-      console.error('Failed to load full dataset for CSV export:', error);
-    } finally {
-      setIsPreparingReport(false);
-    }
-
-    const csvData = reportRows.map(customer => ({
+  // CSV export should match what is currently visible in the table page.
+  const exportToCSV = () => {
+    const csvData = filtered.map(customer => ({
       'Customer Code': customer.code,
       'Customer Name': customer.name,
       'House Name': customer.houseName,
@@ -99,7 +90,7 @@ export default function CustomerTable({
     setIsPreparingReport(true);
     let reportRows = filtered;
     try {
-      reportRows = await getRowsForReport();
+      reportRows = await getRowsForPrintReport();
     } catch (error) {
       console.error('Failed to load full dataset for printing:', error);
     } finally {
@@ -107,50 +98,10 @@ export default function CustomerTable({
     }
 
     const printWindow = window.open('', '_blank');
-
-    const renderTableRows = () =>
-      reportRows.map(customer => {
-        const maxClaimable = getMaxClaimablePoints ? getMaxClaimablePoints(customer.unclaimed) : Math.floor(customer.unclaimed / 5) * 5;
-        return `
-          <tr>
-            <td>${customer.code || ''}</td>
-            <td>${customer.name || ''}</td>
-            <td>${customer.place || ''}</td>
-            <td>${customer.mobile || ''}</td>
-            <td>${customer.total || 0}</td>
-            <td>${customer.claimed || 0}</td>
-            <td>${customer.unclaimed || 0}</td>
-            <td>${maxClaimable}</td>
-            <td>${customer.lastSalesDate || ''}</td>
-          </tr>
-        `;
-      }).join('');
-
-    const renderStackedRows = () =>
-      reportRows.map(customer => {
-        const clean = (value) => {
-          if (value === null || value === undefined) return '';
-          return String(value).trim();
-        };
-
-        const code = clean(customer.code);
-        const name = clean(customer.name);
-        const houseName = clean(customer.houseName);
-        const street = clean(customer.street);
-        const place = clean(customer.place);
-        const pinCode = clean(customer.pinCode);
-        const mobile = clean(customer.mobile);
-        const addressLine = [houseName, street, place, pinCode].filter(Boolean).join(' ');
-
-        return `
-          <div class="customer-card">
-            <div class="customer-title">${code}</div>
-            ${name ? `<div class="stack-line">${name}</div>` : ''}
-            ${addressLine ? `<div class="stack-line">${addressLine}</div>` : ''}
-            ${mobile ? `<div class="stack-line">${mobile}</div>` : ''}
-          </div>
-        `;
-      }).join('');
+    const serializedReportRows = JSON.stringify(reportRows).replace(/</g, '\\u003c');
+    const pageSizeOptionsMarkup = pageSizeOptions
+      .map((size) => `<option value="${size}" ${size === itemsPerPage ? 'selected' : ''}>${size}</option>`)
+      .join('');
     
     printWindow.document.write(`
       <html>
@@ -179,6 +130,10 @@ export default function CustomerTable({
             .stack-line { font-size: 12px; color: #111827; line-height: 1.25; margin: 0; }
             .toggle-btn { padding: 8px 14px; border: 1px solid #d1d5db; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer; }
             .toggle-btn.active { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; font-weight: 600; }
+            .pager-btn { padding: 8px 12px; border: 1px solid #d1d5db; background: #fff; border-radius: 6px; font-size: 13px; cursor: pointer; }
+            .pager-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+            .pager-select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; }
+            .pagination-wrap { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
             @media print {
               .no-print, .no-print * {
                 display: none !important;
@@ -219,6 +174,19 @@ export default function CustomerTable({
             <button id="btn-stacked" class="toggle-btn ${printStyle === 'stacked' ? 'active' : ''}" onclick="setReportStyle('stacked')">Stacked</button>
             <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px;">Print Report</button>
           </div>
+
+          <div class="pagination-wrap no-print">
+            <span style="font-size: 13px; color: #4b5563;">Show</span>
+            <select id="page-size-select" class="pager-select" onchange="changePageSize()">
+              ${pageSizeOptionsMarkup}
+            </select>
+            <span style="font-size: 13px; color: #4b5563;">per page</span>
+            <button id="first-page-btn" class="pager-btn" onclick="goToFirstPage()">First</button>
+            <button id="prev-page-btn" class="pager-btn" onclick="goToPrevPage()">Prev</button>
+            <span id="page-info" style="font-size: 13px; color: #111827;"></span>
+            <button id="next-page-btn" class="pager-btn" onclick="goToNextPage()">Next</button>
+            <button id="last-page-btn" class="pager-btn" onclick="goToLastPage()">Last</button>
+          </div>
           
           <div id="table-report" style="display:${printStyle === 'table' ? 'block' : 'none'};">
             <table>
@@ -235,14 +203,10 @@ export default function CustomerTable({
                   <th>Last Sales Date</th>
                 </tr>
               </thead>
-              <tbody>
-                ${renderTableRows()}
-              </tbody>
+              <tbody id="table-report-body"></tbody>
             </table>
           </div>
-          <div id="stacked-report" class="stacked-grid" style="display:${printStyle === 'stacked' ? 'grid' : 'none'};">
-            ${renderStackedRows()}
-          </div>
+          <div id="stacked-report" class="stacked-grid" style="display:${printStyle === 'stacked' ? 'grid' : 'none'};"></div>
           
           <div style="margin-top: 20px; font-size: 10px; color: #666;">
             <p>Points Formula: 1 point per 10 grams of gold weight</p>
@@ -251,8 +215,96 @@ export default function CustomerTable({
           </div>
           <script>
             var printControls = document.getElementById('print-controls');
+            var allRows = ${serializedReportRows};
+            var reportStyle = '${printStyle}';
+            var currentPage = 1;
+            var pageSizeSelect = document.getElementById('page-size-select');
+            var pageSize = Number(pageSizeSelect.value) || ${itemsPerPage};
+            var tableReportBody = document.getElementById('table-report-body');
+            var stackedReport = document.getElementById('stacked-report');
+            var pageInfo = document.getElementById('page-info');
+            var firstPageBtn = document.getElementById('first-page-btn');
+            var prevPageBtn = document.getElementById('prev-page-btn');
+            var nextPageBtn = document.getElementById('next-page-btn');
+            var lastPageBtn = document.getElementById('last-page-btn');
+
+            function clean(value) {
+              if (value === null || value === undefined) return '';
+              return String(value).trim();
+            }
+
+            function escapeHtml(value) {
+              return clean(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            }
+
+            function getMaxClaimable(unclaimedPoints) {
+              var points = Number(unclaimedPoints) || 0;
+              return Math.floor(points / 5) * 5;
+            }
+
+            function getTotalPages() {
+              return Math.max(1, Math.ceil(allRows.length / pageSize));
+            }
+
+            function getPagedRows() {
+              var start = (currentPage - 1) * pageSize;
+              return allRows.slice(start, start + pageSize);
+            }
+
+            function renderTableRows(rows) {
+              if (!rows.length) {
+                return '<tr><td colspan="9" style="text-align:center; padding: 20px;">No customers found.</td></tr>';
+              }
+
+              return rows.map(function(customer) {
+                return ''
+                  + '<tr>'
+                  + '<td>' + escapeHtml(customer.code) + '</td>'
+                  + '<td>' + escapeHtml(customer.name) + '</td>'
+                  + '<td>' + escapeHtml(customer.place) + '</td>'
+                  + '<td>' + escapeHtml(customer.mobile) + '</td>'
+                  + '<td>' + (Number(customer.total) || 0) + '</td>'
+                  + '<td>' + (Number(customer.claimed) || 0) + '</td>'
+                  + '<td>' + (Number(customer.unclaimed) || 0) + '</td>'
+                  + '<td>' + getMaxClaimable(customer.unclaimed) + '</td>'
+                  + '<td>' + escapeHtml(customer.lastSalesDate) + '</td>'
+                  + '</tr>';
+              }).join('');
+            }
+
+            function renderStackedRows(rows) {
+              if (!rows.length) {
+                return '<div style="font-size: 13px; color: #4b5563;">No customers found.</div>';
+              }
+
+              return rows.map(function(customer) {
+                var code = escapeHtml(customer.code);
+                var name = escapeHtml(customer.name);
+                var houseName = clean(customer.houseName);
+                var street = clean(customer.street);
+                var place = clean(customer.place);
+                var pinCode = clean(customer.pinCode);
+                var mobile = escapeHtml(customer.mobile);
+                var addressLine = [houseName, street, place, pinCode].filter(Boolean).join(' ');
+                var safeAddress = escapeHtml(addressLine);
+
+                return ''
+                  + '<div class="customer-card">'
+                  + '<div class="customer-title">' + code + '</div>'
+                  + (name ? '<div class="stack-line">' + name + '</div>' : '')
+                  + (safeAddress ? '<div class="stack-line">' + safeAddress + '</div>' : '')
+                  + (mobile ? '<div class="stack-line">' + mobile + '</div>' : '')
+                  + '</div>';
+              }).join('');
+            }
 
             function setReportStyle(style) {
+              reportStyle = style;
               var table = document.getElementById('table-report');
               var stacked = document.getElementById('stacked-report');
               var btnTable = document.getElementById('btn-table');
@@ -263,13 +315,57 @@ export default function CustomerTable({
                 stacked.style.display = 'none';
                 btnTable.classList.add('active');
                 btnStacked.classList.remove('active');
-                return;
+              } else {
+                table.style.display = 'none';
+                stacked.style.display = 'grid';
+                btnTable.classList.remove('active');
+                btnStacked.classList.add('active');
               }
+            }
 
-              table.style.display = 'none';
-              stacked.style.display = 'grid';
-              btnTable.classList.remove('active');
-              btnStacked.classList.add('active');
+            function updatePagination() {
+              var totalPages = getTotalPages();
+              pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+              firstPageBtn.disabled = currentPage === 1;
+              prevPageBtn.disabled = currentPage === 1;
+              nextPageBtn.disabled = currentPage === totalPages;
+              lastPageBtn.disabled = currentPage === totalPages;
+            }
+
+            function renderReportPage() {
+              var rows = getPagedRows();
+              tableReportBody.innerHTML = renderTableRows(rows);
+              stackedReport.innerHTML = renderStackedRows(rows);
+              setReportStyle(reportStyle);
+              updatePagination();
+            }
+
+            function goToPage(page) {
+              var totalPages = getTotalPages();
+              currentPage = Math.max(1, Math.min(totalPages, page));
+              renderReportPage();
+            }
+
+            function goToFirstPage() {
+              goToPage(1);
+            }
+
+            function goToPrevPage() {
+              goToPage(currentPage - 1);
+            }
+
+            function goToNextPage() {
+              goToPage(currentPage + 1);
+            }
+
+            function goToLastPage() {
+              goToPage(getTotalPages());
+            }
+
+            function changePageSize() {
+              pageSize = Number(pageSizeSelect.value) || ${itemsPerPage};
+              currentPage = 1;
+              renderReportPage();
             }
 
             function hidePrintControls() {
@@ -286,6 +382,13 @@ export default function CustomerTable({
 
             window.addEventListener('beforeprint', hidePrintControls);
             window.addEventListener('afterprint', showPrintControls);
+            window.goToFirstPage = goToFirstPage;
+            window.goToPrevPage = goToPrevPage;
+            window.goToNextPage = goToNextPage;
+            window.goToLastPage = goToLastPage;
+            window.changePageSize = changePageSize;
+            window.setReportStyle = setReportStyle;
+            renderReportPage();
           </script>
         </body>
       </html>
