@@ -9,7 +9,6 @@ import {
   X,
   CloudUpload,
   List as ListIcon,
-  LayoutDashboard,
 } from 'lucide-react';
 
 import UploadData from '../components/UploadData';
@@ -122,11 +121,15 @@ export default function Dashboard() {
       <div className="relative flex flex-1 overflow-hidden">
         {/* Sidebar - desktop only */}
         <div className="relative hidden lg:block w-20 shrink-0">
-          <aside className="group fixed left-0 top-[60px] bottom-0 z-40 w-20 overflow-hidden border-r border-gray-200 bg-white shadow-sm transition-[width,box-shadow] duration-300 ease-out hover:w-64 hover:shadow-xl focus-within:w-64 focus-within:shadow-xl">
+          <aside className="group fixed left-0 top-[60px] bottom-0 z-40 w-20 overflow-hidden border-r border-gray-200 bg-white shadow-sm transition-[width,box-shadow] duration-300 ease-out hover:w-64 hover:shadow-xl">
             <div className="border-b border-gray-100 px-4 py-4">
-              <div className="flex items-center gap-2 min-w-0">
-                <LayoutDashboard className="w-5 h-5 text-blue-600 shrink-0" />
-                <h1 className="text-lg font-bold text-blue-600 whitespace-nowrap overflow-hidden max-w-0 opacity-0 transition-all duration-200 ease-out group-hover:max-w-[180px] group-hover:opacity-100 group-focus-within:max-w-[180px] group-focus-within:opacity-100">
+              <div className="flex items-center justify-center group-hover:justify-start gap-2 min-w-0 transition-all duration-200 ease-out">
+                <img
+                  src="/favicon.png"
+                  alt="TRJ"
+                  className="w-8 h-8 rounded-md object-contain shrink-0"
+                />
+                <h1 className="text-lg font-bold text-blue-600 whitespace-nowrap overflow-hidden max-w-0 opacity-0 transition-all duration-200 ease-out group-hover:max-w-[180px] group-hover:opacity-100">
                   TRJ Dashboard
                 </h1>
               </div>
@@ -141,10 +144,10 @@ export default function Dashboard() {
                     view === item.name
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  } justify-center group-hover:justify-start group-focus-within:justify-start`}
+                  } justify-center group-hover:justify-start`}
                 >
                   {item.icon}
-                  <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out group-hover:ml-3 group-hover:max-w-[140px] group-hover:opacity-100 group-focus-within:ml-3 group-focus-within:max-w-[140px] group-focus-within:opacity-100">
+                  <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 ease-out group-hover:ml-3 group-hover:max-w-[140px] group-hover:opacity-100">
                     {item.name}
                   </span>
                 </button>
@@ -229,7 +232,7 @@ export default function Dashboard() {
 
       {/* Change Password Modal */}
       {pwdModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/35 backdrop-blur-[1px] flex items-center justify-center z-50 p-4">
           <ChangePasswordForm onClose={() => setPwdModalOpen(false)} user={user} />
         </div>
       )}
